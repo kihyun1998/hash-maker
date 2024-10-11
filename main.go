@@ -1,10 +1,19 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 )
+
+var startPath string
+var rootPath string
+
+func init() {
+	flag.StringVar(&startPath, "startPath", "", "The valiable startPath is start root path. (required)")
+	flag.Parse()
+}
 
 const (
 	sumFileName    = "hash_sum.txt"
@@ -12,13 +21,17 @@ const (
 )
 
 func main() {
-	exePath, err := os.Executable()
-	if err != nil {
-		fmt.Printf("Error getting executable path: %v\n", err)
-		return
-	}
+	if startPath != "" {
+		rootPath = filepath.Dir(startPath)
+	} else {
+		exePath, err := os.Executable()
+		if err != nil {
+			fmt.Printf("Error getting executable path: %v\n", err)
+			return
+		}
 
-	rootPath := filepath.Dir(exePath)
+		rootPath = filepath.Dir(exePath)
+	}
 
 	fmt.Printf("Calculating hashes for directory: %s\n", rootPath)
 
