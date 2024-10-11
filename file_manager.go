@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strings"
 )
 
 func writeSumFile(hashes map[string]fileInfo, sumFilePath string) error {
@@ -22,7 +21,7 @@ func writeSumFile(hashes map[string]fileInfo, sumFilePath string) error {
 
 	for _, path := range paths {
 		info := hashes[path]
-		_, err := fmt.Fprintf(file, "%s;%s;%s\n", info.fileType, strings.ReplaceAll(path, "\\", "/"), info.hash)
+		_, err := fmt.Fprintf(file, "%s;%s;%s\n", info.fileType, info.pathHash, info.dataHash)
 		if err != nil {
 			return fmt.Errorf("failed to write to sum file: %v", err)
 		}

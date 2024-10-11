@@ -6,11 +6,6 @@ import (
 	"path/filepath"
 )
 
-type fileInfo struct {
-	fileType string
-	hash     string
-}
-
 const (
 	sumFileName    = "hash_sum.txt"
 	executableName = "hash-maker.exe"
