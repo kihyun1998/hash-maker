@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"crypto/sha256"
 	"encoding/binary"
 	"flag"
@@ -14,11 +15,17 @@ var startPath string
 var rootPath string
 var zipPath string
 var useZip bool
+var zipFolder string
+var zipName string
+var zipOutputPath string
 
 func init() {
 	flag.StringVar(&startPath, "startPath", "", "The valiable startPath is start root path")
 	flag.StringVar(&zipPath, "zipPath", "", "The path to the zip file to be hashed")
 	flag.BoolVar(&useZip, "zip", false, "Use zip file mode")
+	flag.StringVar(&zipFolder, "zipfolder", "", "The folder to be zipped")
+	flag.StringVar(&zipName, "zipname", "", "The name of the output zip file")
+	flag.StringVar(&zipOutputPath, "zipoutput", "", "The output path for the zip file")
 	flag.Parse()
 }
 
@@ -40,6 +47,22 @@ func main() {
 			return
 		}
 		fmt.Println("Zip file processed successfully.")
+		return
+	}
+
+	if zipFolder != "" && zipName != "" {
+		outputPath := zipOutputPath
+		if outputPath == "" {
+			outputPath = "."
+		}
+		zipFilePath := filepath.Join(outputPath, zipName)
+
+		err := zipDirectory(zipFolder, zipFilePath)
+		if err != nil {
+			fmt.Printf("Error creating zip file: %v\n", err)
+			return
+		}
+		fmt.Printf("Successfully created zip file: %s\n", zipFilePath)
 		return
 	}
 
@@ -118,4 +141,66 @@ func processBasicHash() {
 	}
 
 	fmt.Printf("Hash sum file '%s' has been created successfully.\n", sumFilePath)
+}
+func zipDirectory(sourceDir, zipFile string) error {
+	// ZIP 파일 생성 전 디렉토리 확인 및 생성
+	zipDir := filepath.Dir(zipFile)
+	if err := os.MkdirAll(zipDir, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create directory for zip file: %v", err)
+	}
+
+	// ZIP 파일 생성
+	zipfile, err := os.Create(zipFile)
+	if err != nil {
+		return err
+	}
+	defer zipfile.Close()
+
+	archive := zip.NewWriter(zipfile)
+	defer archive.Close()
+
+	// 소스 디렉토리를 순회하며 파일 압축
+	err = filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// ZIP 파일 내 경로 생성
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+
+		relPath, err := filepath.Rel(sourceDir, path)
+		if err != nil {
+			return err
+		}
+		header.Name = filepath.ToSlash(relPath)
+
+		if info.IsDir() {
+			header.Name += "/"
+		} else {
+			header.Method = zip.Deflate
+		}
+
+		writer, err := archive.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+			_, err = io.Copy(writer, file)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	return err
 }

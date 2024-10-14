@@ -3,9 +3,11 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type fileInfo struct {
@@ -27,10 +29,10 @@ func calculateHashes(rootPath string) (map[string]fileInfo, error) {
 			return err
 		}
 
-		// 해시 계산에서 제외할 파일들
-		if relPath != sumFileName && relPath != executableName && !info.IsDir() {
-			pathHash := calculatePathHash(relPath)
+		relPath = filepath.ToSlash(relPath)
 
+		if relPath != sumFileName && !strings.HasPrefix(relPath, executableName) && !info.IsDir() {
+			pathHash := calculatePathHash(relPath)
 			dataHash, err := calculateFileHash(path)
 			if err != nil {
 				return err
@@ -46,6 +48,7 @@ func calculateHashes(rootPath string) (map[string]fileInfo, error) {
 }
 
 func calculatePathHash(relPath string) string {
+	fmt.Println(relPath)
 	hash := sha256.Sum256([]byte(relPath))
 	return base64.StdEncoding.EncodeToString(hash[:])
 }
