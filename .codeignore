@@ -1,0 +1,5 @@
+codemd-windows-amd64.exe
+CODE.md
+.gitattributes
+go.mod
+hash-maker.exe
