@@ -53,8 +53,7 @@ Flutter 빌드 결과물의 경우:
 
 ```
 hash-maker/
-├── cmd/
-│   └── main.go                 # 애플리케이션 진입점
+├── main.go                 # 애플리케이션 진입점
 ├── internal/
 │   ├── domain/                 # 도메인 모델과 인터페이스
 │   │   ├── model/             # 도메인 모델
