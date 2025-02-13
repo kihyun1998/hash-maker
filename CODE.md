@@ -13,6 +13,8 @@ hash-maker/
     │   │   ├── filesystem.go
     │   │   └── hasher.go
     ├── infrastructure/
+    │   ├── config/
+    │   │   └── flag_config.go
     │   ├── fsys/
     │   │   └── local_filesystem.go
     │   ├── hashgen/
@@ -229,6 +231,74 @@ type IHashWriter interface {
 }
 
 ```
+## internal/infrastructure/config/flag_config.go
+```go
+package config
+
+import (
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
+// FlagConfig는 명령줄 플래그 기반 설정 구현체
+type FlagConfig struct {
+	startPath     string
+	zipPath       string
+	useZip        bool
+	zipFolder     string
+	zipName       string
+	zipOutputPath string
+}
+
+// NewFlagConfig는 새로운 FlagConfig 인스턴스를 생성하고 플래그를 파싱
+func NewFlagConfig() (*FlagConfig, error) {
+	config := &FlagConfig{}
+
+	// 플래그 정의
+	flag.StringVar(&config.startPath, "startPath", "", "시작 경로 지정")
+	flag.StringVar(&config.zipPath, "zipPath", "", "ZIP 파일 경로 지정")
+	flag.BoolVar(&config.useZip, "zip", false, "ZIP 모드 사용")
+	flag.StringVar(&config.zipFolder, "zipfolder", "", "ZIP으로 만들 폴더 지정")
+	flag.StringVar(&config.zipName, "zipname", "", "생성할 ZIP 파일 이름")
+	flag.StringVar(&config.zipOutputPath, "zipoutput", "", "ZIP 파일 출력 경로")
+
+	flag.Parse()
+
+	// 기본값 설정
+	if config.startPath == "" {
+		exePath, err := os.Executable()
+		if err != nil {
+			return nil, err
+		}
+		config.startPath = filepath.Dir(exePath)
+	}
+
+	if config.zipOutputPath == "" {
+		config.zipOutputPath = "."
+	}
+
+	return config, nil
+}
+
+// 인터페이스 구현
+func (c *FlagConfig) GetStartPath() string  { return c.startPath }
+func (c *FlagConfig) GetZipPath() string    { return c.zipPath }
+func (c *FlagConfig) IsZipMode() bool       { return c.useZip }
+func (c *FlagConfig) GetZipFolder() string  { return c.zipFolder }
+func (c *FlagConfig) GetZipName() string    { return c.zipName }
+func (c *FlagConfig) GetOutputPath() string { return c.zipOutputPath }
+
+// Validate는 설정값의 유효성을 검증
+func (c *FlagConfig) Validate() error {
+	if c.useZip && c.zipPath == "" {
+		return fmt.Errorf("ZIP 모드에서는 ZIP 파일 경로가 필요합니다")
+	}
+	return nil
+}
+
+```
 ## internal/infrastructure/fsys/local_filesystem.go
 ```go
 package fsys
@@ -352,69 +422,81 @@ func NewZipArchiver() repository.IArchiver {
 }
 
 func (a *ZipArchiver) CreateArchive(sourcePath string, targetPath string) error {
+	// 1. ZIP 파일 생성
 	zipfile, err := os.Create(targetPath)
 	if err != nil {
 		return fmt.Errorf("ZIP 파일 생성 실패: %w", err)
 	}
 	defer zipfile.Close()
 
+	// 2. ZIP 작성자 생성
 	archive := zip.NewWriter(zipfile)
 	defer archive.Close()
 
+	// 3. 디렉토리 순회 시작
 	return filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
+		// 4. ZIP 파일 헤더 생성
 		header, err := zip.FileInfoHeader(info)
 		if err != nil {
 			return fmt.Errorf("ZIP 헤더 생성 실패: %w", err)
 		}
 
+		// 5. 상대 경로 계산
 		relPath, err := filepath.Rel(sourcePath, path)
 		if err != nil {
 			return fmt.Errorf("상대 경로 계산 실패: %w", err)
 		}
 
+		// 6. 헤더 이름 설정 (경로 구분자를 슬래시로 통일)
 		header.Name = filepath.ToSlash(relPath)
 		if info.IsDir() {
 			header.Name += "/"
 		} else {
-			header.Method = zip.Deflate
+			header.Method = zip.Deflate // 압축 방식 설정
 		}
 
+		// 7. ZIP 엔트리 생성
 		writer, err := archive.CreateHeader(header)
 		if err != nil {
 			return fmt.Errorf("ZIP 엔트리 생성 실패: %w", err)
 		}
 
+		// 디렉토리면 더 이상 처리하지 않음
 		if info.IsDir() {
 			return nil
 		}
 
+		// 8. 파일 내용 복사
 		file, err := os.Open(path)
 		if err != nil {
 			return fmt.Errorf("파일 열기 실패: %w", err)
 		}
 		defer file.Close()
 
+		// 파일 내용을 ZIP에 복사
 		_, err = io.Copy(writer, file)
 		return err
 	})
 }
-
 func (a *ZipArchiver) AddHashToArchive(archivePath string, hash []byte) error {
+	// 1. ZIP 파일을 읽기/쓰기 모드로 열기 (끝에 추가 가능하도록)
 	file, err := os.OpenFile(archivePath, os.O_RDWR|os.O_APPEND, 0644)
 	if err != nil {
 		return fmt.Errorf("ZIP 파일 열기 실패: %w", err)
 	}
 	defer file.Close()
 
+	// 2. 해시 길이를 바이너리로 쓰기 (4바이트 정수)
 	hashLength := int32(len(hash))
 	if err := binary.Write(file, binary.LittleEndian, hashLength); err != nil {
 		return fmt.Errorf("해시 길이 쓰기 실패: %w", err)
 	}
 
+	// 3. 실제 해시값 쓰기
 	if _, err := file.Write(hash); err != nil {
 		return fmt.Errorf("해시값 쓰기 실패: %w", err)
 	}
@@ -423,15 +505,17 @@ func (a *ZipArchiver) AddHashToArchive(archivePath string, hash []byte) error {
 }
 
 func (a *ZipArchiver) GetArchiveInfo(path string) (model.FileMetadata, error) {
+	// 1. 파일 정보 가져오기
 	info, err := os.Stat(path)
 	if err != nil {
 		return model.FileMetadata{}, fmt.Errorf("아카이브 정보 조회 실패: %w", err)
 	}
 
+	// 2. FileMetadata 구조체로 변환하여 반환
 	return model.FileMetadata{
-		RelativePath: filepath.Base(path),
-		Size:         info.Size(),
-		IsDirectory:  false,
+		RelativePath: filepath.Base(path), // 파일명만 추출
+		Size:         info.Size(),         // 파일 크기
+		IsDirectory:  false,               // ZIP 파일은 디렉토리가 아님
 	}, nil
 }
 
@@ -650,12 +734,13 @@ func formatHashSummary(lines []string) string {
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/kihyun1998/hash-maker/internal/domain/model"
+	"github.com/kihyun1998/hash-maker/internal/domain/repository"
+	"github.com/kihyun1998/hash-maker/internal/infrastructure/config"
 	"github.com/kihyun1998/hash-maker/internal/infrastructure/fsys"
 	"github.com/kihyun1998/hash-maker/internal/infrastructure/hashgen"
 	"github.com/kihyun1998/hash-maker/internal/infrastructure/ziputil"
@@ -663,32 +748,18 @@ import (
 	"github.com/kihyun1998/hash-maker/internal/service/hasher"
 )
 
-// Config는 명령줄 인자를 관리하는 구조체
-type Config struct {
-	StartPath     string
-	ZipPath       string
-	UseZip        bool
-	ZipFolder     string
-	ZipName       string
-	ZipOutputPath string
-}
-
-// ConfigProvider는 Config 구조체를 기반으로 한 설정 제공자
-type ConfigProvider struct {
-	config Config
-}
-
-func (p *ConfigProvider) GetStartPath() string  { return p.config.StartPath }
-func (p *ConfigProvider) GetZipPath() string    { return p.config.ZipPath }
-func (p *ConfigProvider) IsZipMode() bool       { return p.config.UseZip }
-func (p *ConfigProvider) GetZipFolder() string  { return p.config.ZipFolder }
-func (p *ConfigProvider) GetZipName() string    { return p.config.ZipName }
-func (p *ConfigProvider) GetOutputPath() string { return p.config.ZipOutputPath }
-
 func main() {
-	// 설정 파싱
-	config := parseFlags()
-	configProvider := &ConfigProvider{config: config}
+	// 설정 초기화
+	config, err := config.NewFlagConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "설정 초기화 실패: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := config.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "설정 검증 실패: %v\n", err)
+		os.Exit(1)
+	}
 
 	// 의존성 초기화
 	hashGenerator := hashgen.NewSHA256Generator()
@@ -696,8 +767,8 @@ func main() {
 	zipArchiver := ziputil.NewZipArchiver()
 
 	// 서비스 초기화
-	hashService := hasher.NewHashService(hashGenerator, fileSystem, configProvider)
-	archiveService := archiver.NewArchiveService(zipArchiver, hashGenerator, fileSystem, configProvider)
+	hashService := hasher.NewHashService(hashGenerator, fileSystem, config)
+	archiveService := archiver.NewArchiveService(zipArchiver, hashGenerator, fileSystem, config)
 
 	// 요청 처리
 	if err := processRequest(config, hashService, archiveService); err != nil {
@@ -706,34 +777,15 @@ func main() {
 	}
 }
 
-// parseFlags는 명령줄 인자를 파싱하여 Config 구조체를 반환
-func parseFlags() Config {
-	config := Config{}
-
-	flag.StringVar(&config.StartPath, "startPath", "", "시작 경로 지정")
-	flag.StringVar(&config.ZipPath, "zipPath", "", "ZIP 파일 경로 지정")
-	flag.BoolVar(&config.UseZip, "zip", false, "ZIP 모드 사용")
-	flag.StringVar(&config.ZipFolder, "zipfolder", "", "ZIP으로 만들 폴더 지정")
-	flag.StringVar(&config.ZipName, "zipname", "", "생성할 ZIP 파일 이름")
-	flag.StringVar(&config.ZipOutputPath, "zipoutput", "", "ZIP 파일 출력 경로")
-
-	flag.Parse()
-
-	return config
-}
-
 // processRequest는 설정에 따라 적절한 서비스를 호출
 func processRequest(
-	config Config,
+	config repository.IConfigProvider,
 	hashService *hasher.HashService,
 	archiveService *archiver.ArchiveService,
 ) error {
 	// ZIP 모드일 경우
-	if config.UseZip {
-		if config.ZipPath == "" {
-			return fmt.Errorf("ZIP 모드에서는 ZIP 파일 경로가 필요합니다")
-		}
-		result, err := archiveService.ProcessArchive(config.ZipPath)
+	if config.IsZipMode() {
+		result, err := archiveService.ProcessArchive(config.GetZipPath())
 		if err != nil {
 			return err
 		}
@@ -742,13 +794,10 @@ func processRequest(
 	}
 
 	// ZIP 생성 모드일 경우
-	if config.ZipFolder != "" && config.ZipName != "" {
-		outputPath := config.ZipOutputPath
-		if outputPath == "" {
-			outputPath = "."
-		}
-		zipPath := filepath.Join(outputPath, config.ZipName)
-		result, err := archiveService.CreateAndProcessArchive(config.ZipFolder, zipPath)
+	if config.GetZipFolder() != "" && config.GetZipName() != "" {
+		outputPath := config.GetOutputPath()
+		zipPath := filepath.Join(outputPath, config.GetZipName())
+		result, err := archiveService.CreateAndProcessArchive(config.GetZipFolder(), zipPath)
 		if err != nil {
 			return err
 		}
@@ -757,16 +806,7 @@ func processRequest(
 	}
 
 	// 기본 해시 모드일 경우
-	startPath := config.StartPath
-	if startPath == "" {
-		exePath, err := os.Executable()
-		if err != nil {
-			return fmt.Errorf("실행 파일 경로 가져오기 실패: %w", err)
-		}
-		startPath = filepath.Dir(exePath)
-	}
-
-	return hashService.ProcessDirectory(startPath)
+	return hashService.ProcessDirectory(config.GetStartPath())
 }
 
 // printHashResult는 해시 처리 결과를 출력
