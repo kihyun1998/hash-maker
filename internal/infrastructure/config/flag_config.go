@@ -11,7 +11,7 @@ import (
 type FlagConfig struct {
 	startPath     string
 	zipPath       string
-	useHash       bool
+	useZip        bool
 	zipFolder     string
 	zipName       string
 	zipOutputPath string
@@ -23,8 +23,8 @@ func NewFlagConfig() (*FlagConfig, error) {
 
 	// 플래그 정의
 	flag.StringVar(&config.startPath, "startPath", "", "시작 경로 지정")
-	flag.StringVar(&config.zipPath, "zipPath", "", "ZIP 파일 경로 지정, -hash와 같이 사용한다.")
-	flag.BoolVar(&config.useHash, "hash", false, "Hash 모드 사용, -zipPath로 지정한 zip파일의 해시값을 계산하여 포함한다.")
+	flag.StringVar(&config.zipPath, "zipPath", "", "ZIP 파일 경로 지정")
+	flag.BoolVar(&config.useZip, "zip", false, "ZIP 모드 사용")
 	flag.StringVar(&config.zipFolder, "zipfolder", "", "ZIP으로 만들 폴더 지정")
 	flag.StringVar(&config.zipName, "zipname", "", "생성할 ZIP 파일 이름")
 	flag.StringVar(&config.zipOutputPath, "zipoutput", "", "ZIP 파일 출력 경로")
@@ -50,14 +50,14 @@ func NewFlagConfig() (*FlagConfig, error) {
 // 인터페이스 구현
 func (c *FlagConfig) GetStartPath() string  { return c.startPath }
 func (c *FlagConfig) GetZipPath() string    { return c.zipPath }
-func (c *FlagConfig) IsHashMode() bool      { return c.useHash }
+func (c *FlagConfig) IsZipMode() bool       { return c.useZip }
 func (c *FlagConfig) GetZipFolder() string  { return c.zipFolder }
 func (c *FlagConfig) GetZipName() string    { return c.zipName }
 func (c *FlagConfig) GetOutputPath() string { return c.zipOutputPath }
 
 // Validate는 설정값의 유효성을 검증
 func (c *FlagConfig) Validate() error {
-	if c.useHash && c.zipPath == "" {
+	if c.useZip && c.zipPath == "" {
 		return fmt.Errorf("ZIP 모드에서는 ZIP 파일 경로가 필요합니다")
 	}
 	return nil

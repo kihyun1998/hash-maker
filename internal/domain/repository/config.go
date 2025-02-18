@@ -4,7 +4,7 @@ package repository
 type IConfigProvider interface {
 	GetStartPath() string
 	GetZipPath() string
-	IsHashMode() bool
+	IsZipMode() bool
 	GetZipFolder() string
 	GetZipName() string
 	GetOutputPath() string
