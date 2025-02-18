@@ -51,7 +51,7 @@ func processRequest(
 	archiveService *archiver.ArchiveService,
 ) error {
 	// ZIP 모드일 경우
-	if config.IsZipMode() {
+	if config.IsHashMode() {
 		result, err := archiveService.ProcessArchive(config.GetZipPath())
 		if err != nil {
 			return err
