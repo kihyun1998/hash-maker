@@ -38,6 +38,9 @@ func NewHashService(
 
 // ProcessDirectory는 디렉토리의 모든 파일에 대한 해시를 생성
 func (s *HashService) ProcessDirectory(rootPath string) error {
+
+	// 파일 메타데이터 수집
+	var files []model.FileMetadata
 	// 디렉토리 순회하며 해시 생성
 	err := s.fileSystem.WalkDirectory(rootPath, func(metadata model.FileMetadata) error {
 		// 해시 생성 제외 조건 체크
@@ -45,6 +48,21 @@ func (s *HashService) ProcessDirectory(rootPath string) error {
 			return nil
 		}
 
+		files = append(files, metadata)
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("디렉토리 순회 중 오류: %w", err)
+	}
+
+	// 파일 경로 기준으로 오름차순 정렬
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].RelativePath < files[j].RelativePath
+	})
+
+	// 정렬된 순서로 파일 처리
+	for _, metadata := range files {
 		// 경로 해시 생성
 		pathHash, err := s.hashGenerator.GeneratePathHash(metadata.RelativePath)
 		if err != nil {
@@ -70,12 +88,6 @@ func (s *HashService) ProcessDirectory(rootPath string) error {
 			PathHash: pathHash,
 			DataHash: dataHash,
 		}
-
-		return nil
-	})
-
-	if err != nil {
-		return fmt.Errorf("디렉토리 처리 중 오류: %w", err)
 	}
 
 	// 해시 결과 파일 생성
