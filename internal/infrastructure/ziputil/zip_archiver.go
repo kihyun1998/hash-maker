@@ -21,6 +21,12 @@ func NewZipArchiver() repository.IArchiver {
 }
 
 func (a *ZipArchiver) CreateArchive(sourcePath string, targetPath string) error {
+	// 0. 폴더 검사
+	targetDir := filepath.Dir(targetPath)
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return fmt.Errorf("출력 디렉토리 생성 실패: %w", err)
+	}
+
 	// 1. ZIP 파일 생성
 	zipfile, err := os.Create(targetPath)
 	if err != nil {
