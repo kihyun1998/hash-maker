@@ -79,6 +79,35 @@ hash-maker/
 - 경로해시: 파일 경로의 SHA-256 해시 (Base64 인코딩)
 - 데이터해시: 파일 내용의 SHA-256 해시 (Base64 인코딩)
 
+## 빌드방법
+
+```bash
+# macOS용 빌드
+go build -o hash-maker
+
+# 또는 크로스 컴파일로 여러 플랫폼용 동시 빌드
+GOOS=darwin GOARCH=amd64 go build -o hash-maker-macos-amd64
+GOOS=darwin GOARCH=arm64 go build -o hash-maker-macos-arm64
+GOOS=windows GOARCH=amd64 go build -o hash-maker-windows.exe
+GOOS=linux GOARCH=amd64 go build -o hash-maker-linux
+```
+
+## 사용예시
+
+```bash
+# 디렉토리 해시 생성
+./hash-maker -startPath "/Users/username/Documents/myproject"
+
+# Flutter 프로젝트 (macOS 경로)
+./hash-maker -startPath "프로젝트명/build/macos/Build/Products/Release"
+
+# ZIP 파일 해시 추가
+./hash-maker -zip -zipPath "target.zip"
+
+# 디렉토리를 ZIP으로 압축하고 해시 추가
+./hash-maker -zipfolder "/Users/username/source" -zipname "result.zip" -zipoutput "/Users/username/output"
+```
+
 ## 기여하기
 
 버그 리포트, 기능 요청, 풀 리퀘스트를 환영합니다.
@@ -109,15 +138,3 @@ type FileMetadata struct {
 }
 ```
 
-## 빌드방법
-
-```bash
-# macOS용 빌드
-go build -o hash-maker
-
-# 또는 크로스 컴파일로 여러 플랫폼용 동시 빌드
-GOOS=darwin GOARCH=amd64 go build -o hash-maker-macos-amd64
-GOOS=darwin GOARCH=arm64 go build -o hash-maker-macos-arm64
-GOOS=windows GOARCH=amd64 go build -o hash-maker-windows.exe
-GOOS=linux GOARCH=amd64 go build -o hash-maker-linux
-```
