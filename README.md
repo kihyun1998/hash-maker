@@ -107,3 +107,17 @@ type FileMetadata struct {
     // IsDirectory는 해당 항목이 디렉토리인지 여부를 나타냅니다.
     IsDirectory bool
 }
+```
+
+## 빌드방법
+
+```bash
+# macOS용 빌드
+go build -o hash-maker
+
+# 또는 크로스 컴파일로 여러 플랫폼용 동시 빌드
+GOOS=darwin GOARCH=amd64 go build -o hash-maker-macos-amd64
+GOOS=darwin GOARCH=arm64 go build -o hash-maker-macos-arm64
+GOOS=windows GOARCH=amd64 go build -o hash-maker-windows.exe
+GOOS=linux GOARCH=amd64 go build -o hash-maker-linux
+```

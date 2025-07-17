@@ -10,6 +10,7 @@ import (
 	"github.com/kihyun1998/hash-maker/internal/infrastructure/config"
 	"github.com/kihyun1998/hash-maker/internal/infrastructure/fsys"
 	"github.com/kihyun1998/hash-maker/internal/infrastructure/hashgen"
+	"github.com/kihyun1998/hash-maker/internal/infrastructure/platform"
 	"github.com/kihyun1998/hash-maker/internal/infrastructure/ziputil"
 	"github.com/kihyun1998/hash-maker/internal/service/archiver"
 	"github.com/kihyun1998/hash-maker/internal/service/hasher"
@@ -32,9 +33,10 @@ func main() {
 	hashGenerator := hashgen.NewSHA256Generator()
 	fileSystem := fsys.NewLocalFileSystem()
 	zipArchiver := ziputil.NewZipArchiver()
+	platformProvider := platform.NewExecutableProvider()
 
-	// 서비스 초기화
-	hashService := hasher.NewHashService(hashGenerator, fileSystem, config)
+	// 서비스 초기화 (플랫폼 프로바이더 추가)
+	hashService := hasher.NewHashService(hashGenerator, fileSystem, config, platformProvider)
 	archiveService := archiver.NewArchiveService(zipArchiver, hashGenerator, fileSystem, config)
 
 	// 요청 처리

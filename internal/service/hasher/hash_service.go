@@ -10,16 +10,16 @@ import (
 )
 
 const (
-	SumFileName    = "hash_sum.txt"   // 해시 결과를 저장할 파일 이름
-	ExecutableName = "hash-maker.exe" // 실행 파일 이름
+	SumFileName = "hash_sum.txt" // 해시 결과를 저장할 파일 이름
 )
 
 // HashService는 파일 해시 처리를 담당하는 서비스
 type HashService struct {
-	hashGenerator repository.IHashGenerator
-	fileSystem    repository.IFileSystem
-	config        repository.IConfigProvider
-	hashes        map[string]model.FileHash
+	hashGenerator    repository.IHashGenerator
+	fileSystem       repository.IFileSystem
+	config           repository.IConfigProvider
+	platformProvider repository.IPlatformProvider
+	hashes           map[string]model.FileHash
 }
 
 // NewHashService는 새로운 HashService 인스턴스를 생성
@@ -27,12 +27,14 @@ func NewHashService(
 	hashGen repository.IHashGenerator,
 	fs repository.IFileSystem,
 	config repository.IConfigProvider,
+	platform repository.IPlatformProvider,
 ) *HashService {
 	return &HashService{
-		hashGenerator: hashGen,
-		fileSystem:    fs,
-		config:        config,
-		hashes:        make(map[string]model.FileHash),
+		hashGenerator:    hashGen,
+		fileSystem:       fs,
+		config:           config,
+		platformProvider: platform,
+		hashes:           make(map[string]model.FileHash),
 	}
 }
 
@@ -84,8 +86,9 @@ func (s *HashService) ProcessDirectory(rootPath string) error {
 
 // shouldSkipFile은 해시 생성을 건너뛸 파일인지 확인
 func (s *HashService) shouldSkipFile(metadata model.FileMetadata) bool {
+	executableName := s.platformProvider.GetExecutableName()
 	return metadata.RelativePath == SumFileName ||
-		metadata.RelativePath == ExecutableName ||
+		metadata.RelativePath == executableName ||
 		metadata.IsDirectory
 }
 
